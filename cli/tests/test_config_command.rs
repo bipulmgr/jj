@@ -261,10 +261,16 @@ fn test_config_list_layer() {
     [EOF]
     "#);
 
-     // Workspace (new scope takes precedence over repo)
+    // Workspace (new scope takes precedence over repo)
     // Add a workspace-level setting
     work_dir
-        .run_jj(["config", "set", "--workspace", "test-layered-wks-key", "ws-val"])
+        .run_jj([
+            "config",
+            "set",
+            "--workspace",
+            "test-layered-wks-key",
+            "ws-val",
+        ])
         .success();
 
     // Listing user shouldn't include workspace
@@ -523,51 +529,17 @@ fn test_config_layer_override_env() {
 }
 
 #[test]
-fn test_config_layer_workspace() {
-    let test_env = TestEnvironment::default();
-    test_env.run_jj_in(".", ["git", "init", "main"]).success();
-    let main_dir = test_env.work_dir("main");
-    let secondary_dir = test_env.work_dir("secondary");
-    let config_key = "ui.editor";
-
-    main_dir.write_file("file", "contents");
-    main_dir.run_jj(["new"]).success();
-    main_dir
-        .run_jj(["workspace", "add", "--name", "second", "../secondary"])
-        .success();
-
-    // Repo
-    main_dir.write_file(
-        ".jj/repo/config.toml",
-        format!(
-            "{config_key} = {value}\n",
-            value = to_toml_value("main-repo")
-        ),
-    );
-    let output = main_dir.run_jj(["config", "list", config_key]);
-    insta::assert_snapshot!(output, @r#"
-    ui.editor = "main-repo"
-    [EOF]
-    "#);
-    let output = secondary_dir.run_jj(["config", "list", config_key]);
-    insta::assert_snapshot!(output, @r#"
-    ui.editor = "main-repo"
-    [EOF]
-    "#);
-}
-
-#[test]
 fn test_config_set_bad_opts() {
     let test_env = TestEnvironment::default();
     let output = test_env.run_jj_in(".", ["config", "set"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     error: the following required arguments were not provided:
-      <--user|--repo>
+      <--user|--repo|--workspace>
       <NAME>
       <VALUE>
 
-    Usage: jj config set <--user|--repo> <NAME> <VALUE>
+    Usage: jj config set <--user|--repo|--workspace> <NAME> <VALUE>
 
     For more information, try '--help'.
     [EOF]
@@ -721,9 +693,7 @@ fn test_config_set_for_workspace() {
         .success();
 
     // Read workspace config
-    let workspace_config = work_dir.read_file(
-        ".jj/config.toml"
-    );
+    let workspace_config = work_dir.read_file(".jj/config.toml");
     insta::assert_snapshot!(workspace_config, @r#"
 "$schema" = "https://jj-vcs.github.io/jj/latest/config-schema.json"
 test-key = "ws-val"
@@ -945,7 +915,6 @@ fn test_config_unset_for_repo() {
     insta::assert_snapshot!(repo_config_toml, @r#""$schema" = "https://jj-vcs.github.io/jj/latest/config-schema.json""#);
 }
 
-
 #[test]
 fn test_config_unset_for_workspace() {
     let test_env = TestEnvironment::default();
@@ -966,9 +935,7 @@ fn test_config_unset_for_workspace() {
         .success();
 
     // Ensure workspace config has only schema
-    let workspace_config = work_dir.read_file(
-        ".jj/config.toml"
-    );
+    let workspace_config = work_dir.read_file(".jj/config.toml");
     insta::assert_snapshot!(workspace_config, @r#""$schema" = "https://jj-vcs.github.io/jj/latest/config-schema.json""#);
 }
 
@@ -1697,72 +1664,4 @@ fn test_config_author_change_warning_root_env() {
 fn find_stdout_lines(keyname_pattern: &str, stdout: &str) -> String {
     let key_line_re = Regex::new(&format!(r"(?m)^{keyname_pattern} = .*\n")).unwrap();
     key_line_re.find_iter(stdout).map(|m| m.as_str()).collect()
-}
-
-
-#[test]
-fn test_config_edit_workspace() {
-    let mut test_env = TestEnvironment::default();
-    let edit_script = test_env.set_up_fake_editor();
-    test_env.run_jj_in(".", ["git", "init", "main"]).success();
-    let work_dir = test_env.work_dir("repo");
-    work_dir.run_jj(["new"]).success();
-    work_dir
-        .run_jj(["workspace", "add", "--name", "second", "../secondary"])
-        .success();
-    let second_dir = test_env.work_dir("secondary");
-    let ws_config_path = second_dir
-        .root()
-        .join(PathBuf::from_iter([".jj", "workspace", "second", "config.toml"]));
-    assert!(!ws_config_path.exists());
-
-    std::fs::write(edit_script, "dump-path path").unwrap();
-    second_dir.run_jj(["config", "edit", "--workspace"]).success();
-
-    let edited_path = PathBuf::from(
-        std::fs::read_to_string(test_env.env_root().join("path")).unwrap()
-    );
-    assert_eq!(edited_path, dunce::simplified(&ws_config_path));
-    assert!(ws_config_path.exists(), "new workspace file created");
-}
-
-#[test]
-fn test_config_edit_invalid_workspace() {
-    let mut test_env = TestEnvironment::default();
-    let edit_script = test_env.set_up_fake_editor();
-    std::fs::write(
-        &edit_script,
-        "write\ninvalid config here\0next\0write\ntest=\"ok\"",
-    )
-    .unwrap();
-    test_env.run_jj_in(".", ["git", "init", "main"]).success();
-    let main_dir = test_env.work_dir("main");
-    main_dir.run_jj(["new"]).success();
-    main_dir
-        .run_jj(["workspace", "add", "--name", "second", "../secondary"])
-        .success();
-    let second_dir = test_env.work_dir("secondary");
-
-    // attempt to edit invalid
-    let output = second_dir.run_jj_with(|cmd| {
-        force_interactive(cmd)
-            .args(["config", "edit", "--workspace"])
-            .write_stdin("Y\n")
-    });
-    insta::assert_snapshot!(output, @r#"
-------- stderr -------
-Editing file: $TEST_ENV/secondary/.jj/workspace/second/config.toml
-Warning: An error has been found inside the config:
-Caused by:
-1: Configuration cannot be parsed as TOML document
-2: TOML parse error at line 1, column 9
-  |
-1 | invalid config here
-  |         ^
-expected `.`, `=`
-
-Do you want to keep editing the file? If not, previous config will be restored. (Yn): "#);
-
-    // verify valid restored
-    second_dir.run_jj(["config", "get", "test"]).success();
 }

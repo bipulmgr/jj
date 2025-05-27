@@ -656,7 +656,7 @@ A config file at that path may or may not exist.
 
 See `jj config edit` if you'd like to immediately edit a file.
 
-**Usage:** `jj config path <--user|--repo>`
+**Usage:** `jj config path <--user|--repo|--workspace>`
 
 **Command Alias:** `p`
 
@@ -671,7 +671,7 @@ See `jj config edit` if you'd like to immediately edit a file.
 
 Update a config file to set the given option to a given value
 
-**Usage:** `jj config set <--user|--repo> <NAME> <VALUE>`
+**Usage:** `jj config set <--user|--repo|--workspace> <NAME> <VALUE>`
 
 **Command Alias:** `s`
 
@@ -695,7 +695,7 @@ Update a config file to set the given option to a given value
 
 Update a config file to unset the given option
 
-**Usage:** `jj config unset <--user|--repo> <NAME>`
+**Usage:** `jj config unset <--user|--repo|--workspace> <NAME>`
 
 **Command Alias:** `u`
 

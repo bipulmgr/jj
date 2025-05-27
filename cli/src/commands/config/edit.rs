@@ -44,17 +44,17 @@ pub fn cmd_config_edit(
     let file = if args.level.workspace {
         // Workspace-level: set up workspace path and reload
         let mut temp_env = command.config_env().clone();
-        let cwd = std::env::current_dir()
-            .map_err(|e| user_error(format!("Unable to get cwd: {}", e)))?;
+        let cwd =
+            std::env::current_dir().map_err(|e| user_error(format!("Unable to get cwd: {e}")))?;
         let ws_dir = cwd.join(".jj");
         temp_env.reset_workspace_path(&ws_dir);
         let mut raw = command.raw_config().clone();
         temp_env
             .reload_workspace_config(&mut raw)
-            .map_err(|e| user_error(format!("Failed to load workspace config: {}", e)))?;
+            .map_err(|e| user_error(format!("Failed to load workspace config: {e}")))?;
         let mut files = temp_env
             .workspace_config_files(&raw)
-            .map_err(|e| user_error(format!("No workspace config path: {}", e)))?;
+            .map_err(|e| user_error(format!("No workspace config path: {e}")))?;
         if files.is_empty() {
             return Err(user_error("No workspace config path found"));
         }
@@ -74,8 +74,12 @@ pub fn cmd_config_edit(
         editor.edit_file(file.path())?;
 
         // Validate the edited config
-        if let Err(e) = ConfigLayer::load_from_file(file.layer().source, file.path().to_path_buf()) {
-            writeln!(ui.warning_default(), "An error has been found inside the config:")?;
+        if let Err(e) = ConfigLayer::load_from_file(file.layer().source, file.path().to_path_buf())
+        {
+            writeln!(
+                ui.warning_default(),
+                "An error has been found inside the config:"
+            )?;
             print_error_sources(ui, Some(&e))?;
             let continue_editing = ui.prompt_yes_no(
                 "Do you want to keep editing the file? If not, previous config will be restored.",

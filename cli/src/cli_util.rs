@@ -3867,8 +3867,9 @@ impl<'a> CliRunner<'a> {
             Ok(())
         };
 
-         // Initial load: user, repo, and workspace-level configs for alias/default-command resolution
-         let workspace_root = find_workspace_dir(&cwd);
+        // Initial load: user, repo, and workspace-level configs for
+        // alias/default-command resolution
+        let workspace_root = find_workspace_dir(&cwd);
         // Use cwd-relative workspace configs to resolve default command and
         // aliases. WorkspaceLoader::init() won't do any heavy lifting other
         // than the path resolution.
