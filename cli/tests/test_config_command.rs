@@ -280,14 +280,6 @@ fn test_config_list_layer() {
     [EOF]
     "#);
 
-    // Listing repo shouldn't include workspace
-    let output = work_dir.run_jj(["config", "list", "--repo"]);
-    insta::assert_snapshot!(output, @r#"
-    "$schema" = "https://jj-vcs.github.io/jj/latest/config-schema.json"
-    test-layered-key = "test-layered-val"
-    [EOF]
-    "#);
-
     // Workspace
     let output = work_dir.run_jj(["config", "list", "--workspace"]);
     insta::assert_snapshot!(output, @r#"
@@ -529,17 +521,51 @@ fn test_config_layer_override_env() {
 }
 
 #[test]
+fn test_config_layer_workspace() {
+    let test_env = TestEnvironment::default();
+    test_env.run_jj_in(".", ["git", "init", "main"]).success();
+    let main_dir = test_env.work_dir("main");
+    let secondary_dir = test_env.work_dir("secondary");
+    let config_key = "ui.editor";
+
+    main_dir.write_file("file", "contents");
+    main_dir.run_jj(["new"]).success();
+    main_dir
+        .run_jj(["workspace", "add", "--name", "second", "../secondary"])
+        .success();
+
+    // Repo
+    main_dir.write_file(
+        ".jj/repo/config.toml",
+        format!(
+            "{config_key} = {value}\n",
+            value = to_toml_value("main-repo")
+        ),
+    );
+    let output = main_dir.run_jj(["config", "list", config_key]);
+    insta::assert_snapshot!(output, @r#"
+    ui.editor = "main-repo"
+    [EOF]
+    "#);
+    let output = secondary_dir.run_jj(["config", "list", config_key]);
+    insta::assert_snapshot!(output, @r#"
+    ui.editor = "main-repo"
+    [EOF]
+    "#);
+}
+
+#[test]
 fn test_config_set_bad_opts() {
     let test_env = TestEnvironment::default();
     let output = test_env.run_jj_in(".", ["config", "set"]);
     insta::assert_snapshot!(output, @r"
     ------- stderr -------
     error: the following required arguments were not provided:
-      <--user|--repo|--workspace>
+      <--user|--repo>
       <NAME>
       <VALUE>
 
-    Usage: jj config set <--user|--repo|--workspace> <NAME> <VALUE>
+    Usage: jj config set <--user|--repo> <NAME> <VALUE>
 
     For more information, try '--help'.
     [EOF]
@@ -1060,10 +1086,8 @@ fn test_config_edit_repo() {
         .root()
         .join(PathBuf::from_iter([".jj", "repo", "config.toml"]));
     assert!(!repo_config_path.exists());
-
     std::fs::write(edit_script, "dump-path path").unwrap();
     work_dir.run_jj(["config", "edit", "--repo"]).success();
-
     let edited_path =
         PathBuf::from(std::fs::read_to_string(test_env.env_root().join("path")).unwrap());
     assert_eq!(edited_path, dunce::simplified(&repo_config_path));
