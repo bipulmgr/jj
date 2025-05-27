@@ -117,16 +117,6 @@ pub fn cmd_workspace_add(
         workspace_name.clone(),
     )?;
 
-    // Set up workspace config path and reload config
-    let mut config_env = command.config_env().clone();
-    config_env.reset_workspace_path(&destination_path.join(".jj"));
-
-    let mut raw_config = command.raw_config().clone();
-    config_env.reload_workspace_config(&mut raw_config)?;
-
-    // Create a new WorkspaceCommandHelper with the updated settings and config
-    let mut new_workspace_command = command.for_workable_repo(ui, new_workspace, repo)?;
-
     writeln!(
         ui.status(),
         "Created workspace in \"{}\"",
@@ -143,6 +133,7 @@ pub fn cmd_workspace_add(
         )?;
     }
 
+    let mut new_workspace_command = command.for_workable_repo(ui, new_workspace, repo)?;
     let sparsity = match args.sparse_patterns {
         SparseInheritance::Full => None,
         SparseInheritance::Empty => Some(vec![]),

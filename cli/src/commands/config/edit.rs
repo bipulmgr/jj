@@ -32,51 +32,6 @@ pub struct ConfigEditArgs {
     pub level: ConfigLevelArgs,
 }
 
-// #[instrument(skip_all)]
-// pub fn cmd_config_edit(
-//     ui: &mut Ui,
-//     command: &CommandHelper,
-//     args: &ConfigEditArgs,
-// ) -> Result<(), CommandError> {
-//     let editor = command.text_editor()?;
-//     let file = args.level.edit_config_file(ui, command)?;
-//     if !file.path().exists() {
-//         file.save()?;
-//     }
-
-//     // Editing again and again until either of these conditions is met
-//     // 1. The config is OK
-//     // 2. The user restores previous one
-//     writeln!(ui.status(), "Editing file: {}", file.path().display())?;
-//     loop {
-//         editor.edit_file(file.path())?;
-
-//         // Trying to load back config. If error, prompt to continue editing
-//         if let Err(e) = ConfigLayer::load_from_file(file.layer().source, file.path().to_path_buf())
-//         {
-//             writeln!(
-//                 ui.warning_default(),
-//                 "An error has been found inside the config:"
-//             )?;
-//             print_error_sources(ui, Some(&e))?;
-//             let continue_editing = ui.prompt_yes_no(
-//                 "Do you want to keep editing the file? If not, previous config will be restored.",
-//                 Some(true),
-//             )?;
-//             if !continue_editing {
-//                 // Saving back previous config
-//                 file.save()?;
-//                 break;
-//             }
-//         } else {
-//             // config is OK
-//             break;
-//         }
-//     }
-//     Ok(())
-// }
-
-
 #[instrument(skip_all)]
 pub fn cmd_config_edit(
     ui: &mut Ui,
